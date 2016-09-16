@@ -44,8 +44,6 @@ with open(_CSVFILE_, 'wb') as csvfile:
     while continue_request:
         print(u'traitement page {}'.format(page))
         try:
-            if page <> 1: #http://lescreches.fr/eure-27/page2.html
-                url = "{}page{}.html".format(_URL_,str(page))
             req = urllib2.Request(url, None, headers={'User-Agent' : "New Browser"})
             html = urllib2.urlopen(req).read()
             soup = BeautifulSoup(html, 'html.parser')
@@ -64,5 +62,6 @@ with open(_CSVFILE_, 'wb') as csvfile:
                 info_creche += [ elem.text for elem in creche.find_all('p') if elem.text is not None]
                 csv_writer.writerow([info.encode('utf-8') for info in info_creche])
             page += 1
+            url = "{}page{}.html".format(_URL_,str(page)) #http://lescreches.fr/eure-27/page2.html
         except urllib2.HTTPError :
             continue_request = False
