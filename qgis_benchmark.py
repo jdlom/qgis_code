@@ -44,7 +44,7 @@ def dateTimeTest():
 
 def layerSize(data_source, provider):
     '''
-    Retrieve the layer
+    Retrieve the layer size
     '''
     if provider == 'spatialite':
         m = re.search('\'(.*)\'', data_source)

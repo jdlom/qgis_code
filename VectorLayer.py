@@ -15,7 +15,7 @@ class VectorLayer(QgsVectorLayer):
         self._filter = None
         self._encoding = None
         self._selection = None
-        self._fieldList = None
+        self._field_list = None
 
     @classmethod
     def fromLayer(cls, layer, name=None, add_to_legend=False):
@@ -104,6 +104,18 @@ class VectorLayer(QgsVectorLayer):
         ids = [f.id() for f in result_it]
         self.setSelectedFeatures(ids)
 
+    ### field_list property ###
+    @property
+    def field_list(self):
+        return self.fields()
+    
+    @selection.setter
+    def field_list(self, expr):
+        result_it = self.where(expr)
+        ids = [f.id() for f in result_it]
+        self.setSelectedFeatures(ids)
+
+
     def where(self, exp):
         '''Request feature by QgsExpression
         Usage :
@@ -116,6 +128,10 @@ class VectorLayer(QgsVectorLayer):
         if exp.hasEvalError():
             raise ValueError(exp.evalErrorString())
         return self.getFeatures(QgsFeatureRequest(exp))
+
+    def removeColumn(self):
+        pass
+
     
     def add(self, add_to_legend=True):
         '''Add the instance to the legend'''
