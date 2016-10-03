@@ -9,17 +9,37 @@ from qgis.core import (QgsMapLayer, QgsVectorLayer,
                     QgsMapLayerRegistry)
 
 from PyQt4.QtCore import QEventLoop
+from functools import wraps
+
+class Time:
+    ''' Class to manage the format print of time
+    '''
+    def __init__(self, time, force_in_sec=False):
+        self.time = time
+        self.min, self.sec = divmod(time, 60)
+        self.force_in_sec = force_in_sec
+    def __repr__(self):
+        if self.force_in_sec or not self.min:
+            return u'{:.2f} sec(s)'.format(self.time)
+        else:
+
+            return u'{:.0f} min(s) {:.2f} sec(s)'.format(self.min, self.sec)
+
 
 #decorator
-def timeit(method):
-    def timed(*args, **kwargs):
-        ts = time.time()
-        result = method(*args, **kwargs)
-        te = time.time()
-        print '%r %2.2f sec' % \
-              (method.__name__, te-ts)
-        return result
-    return timed
+def timeit(force_in_sec=False):
+    def timeit_decorator(method):
+        @wraps(method)
+        def timed(*args, **kwargs):
+            ts = time.time()
+            result = method(*args, **kwargs)
+            te = time.time()
+            duration = Time(te-ts, force_in_sec)
+            print('{} : {}'.format(method.__name__, duration))
+            return result
+        return timed
+    return timeit_decorator
+
 
 #Exception to manage error during tests
 # class TestException(Exception):
@@ -62,12 +82,12 @@ def layerSize(data_source, provider):
 
 
 
-@timeit
+@timeit(force_in_sec=True)
 def loadLayer(data_source, layer_name, provider):
     '''
     To get data_source : open the layer,
     get in properties and copy past the source.
-    exemple :
+    Exemple :
 
     data_source = ur"""dbname='D:/inondation.sqlite' table="commune" (geometry) sql="""
     data_source = ur"""\\10.27.8.61\gb_cons\DONNEE_GENERIQUE\N_INTERCOMMUNALITE\L_EPCI_BDP_S_027.shp"""
@@ -81,15 +101,15 @@ def loadLayer(data_source, layer_name, provider):
     ev_loop.exec_()
     return layer
 
-@timeit
+@timeit()
 def openAttributeTable(layer):
     iface.showAttributeTable(layer)
 
-@timeit
+@timeit()
 def saveLayer(layer, feature):
     pass
 
-@timeit
+@timeit()
 def deleteFeatureAndSave(layer, fid):
     # try:
     #     layer.startEditing()
@@ -100,7 +120,8 @@ def deleteFeatureAndSave(layer, fid):
     pass
 
 def registerLayersSettings(printLayersParam=False):
-    ''' Return vector layer settings and remove all layers from the incoming project
+    ''' Return vector layer settings and remove all layers from the incoming
+        project
     '''
     registry = QgsMapLayerRegistry.instance()
     layers_params = [
