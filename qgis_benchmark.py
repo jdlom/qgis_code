@@ -3,10 +3,12 @@ import time
 import platform
 import os
 import re
+import random
 
 from qgis.utils import iface
 from qgis.core import (QgsMapLayer, QgsVectorLayer,
-                    QgsMapLayerRegistry)
+                       QgsMapLayerRegistry,
+                       QgsVectorDataProvider)
 
 from PyQt4.QtCore import QEventLoop
 from functools import wraps
@@ -33,9 +35,12 @@ def timeit(force_in_sec=False):
         def timed(*args, **kwargs):
             ts = time.time()
             result = method(*args, **kwargs)
-            te = time.time()
-            duration = Time(te-ts, force_in_sec)
-            print('{} : {}'.format(method.__name__, duration))
+            if result is not None:
+                te = time.time()
+                duration = Time(te-ts, force_in_sec)
+                print('{} : {}'.format(method.__name__, duration))
+            else:
+                print('{} : failed'.format(method.__name__))
             return result
         return timed
     return timeit_decorator
@@ -55,12 +60,13 @@ def qgisVersion():
     print('qgis version : {} '.format(unicode(QGis.QGIS_VERSION_INT)))
 
 def machineInformation():
-    info = platform.uname()
-    os, version, arch, proc = info[0], info[2], info[4], info[5]
-    print 'os : {} {}\narchitecture : {}\nprocessor : {} '.format(os, version, arch, proc)
+    #system, node, release, version, machine, processor = platform.uname()
+    print 'os : {0} {2}\narchitecture : {4}\nprocessor : {5} '.format(*platform.uname())
 
 def dateTimeTest():
     print ("Date tests : {}".format(time.strftime("%c")))
+
+
 
 def layerSize(data_source, provider):
     '''
@@ -76,7 +82,26 @@ def layerSize(data_source, provider):
         filepath = data_source
     else:
         return
-    size = float(os.path.getsize(filepath))/(1024**2)
+
+    _filepath, ext = os.path.splitext(filepath)
+    if ext.lower() == '.shp':
+        size = float(os.path.getsize(filepath))/(1024**2)
+        print('layer size (shp): {:.2f}'.format(size))
+        filepath = os.path.join(_filepath, '.dbf')
+        if os.path.isfile(filepath):
+            size = float(os.path.getsize(filepath))/(1024**2)
+            print('layer size (dbf): {:.2f}'.format(size))
+        else:
+            return
+    if ext.lower() == '.tab':
+        size = float(os.path.getsize(filepath))/(1024**2)
+        print('layer size (tab): {:.2f}'.format(size))
+        filepath = os.path.join(_filepath, '.dbf')
+        if os.path.isfile(filepath):
+            size = float(os.path.getsize(filepath))/(1024**2)
+            print('layer size (dbf): {:.2f}'.format(size))
+        else:
+            return    
     print('layer size : {:.2f}'.format(size))
 
 
@@ -92,32 +117,82 @@ def loadLayer(data_source, layer_name, provider):
     data_source = ur"""dbname='D:/inondation.sqlite' table="commune" (geometry) sql="""
     data_source = ur"""\\10.27.8.61\gb_cons\DONNEE_GENERIQUE\N_INTERCOMMUNALITE\L_EPCI_BDP_S_027.shp"""
     '''
-    canvas = iface.mapCanvas()
-    canvas.setRenderFlag(False)
-    layer =  iface.addVectorLayer(data_source, layer_name, provider)
-    ev_loop = QEventLoop()
-    canvas.renderComplete.connect(ev_loop.quit)
-    canvas.setRenderFlag(True)
-    ev_loop.exec_()
-    return layer
+    try:
+        canvas = iface.mapCanvas()
+        canvas.setRenderFlag(False)
+        layer =  iface.addVectorLayer(data_source, layer_name, provider)
+        ev_loop = QEventLoop()
+        canvas.renderComplete.connect(ev_loop.quit)
+        canvas.setRenderFlag(True)
+        ev_loop.exec_()
+        return layer
+    except:
+        return False
 
 @timeit()
 def openAttributeTable(layer):
-    iface.showAttributeTable(layer)
+    try:
+        iface.showAttributeTable(layer)
+        return True
+    except:
+        return False
 
 @timeit()
-def saveLayer(layer, feature):
-    pass
+def addFeatureAndSave(layer, features=None):
+    try:
+        if features is None:
+            features = [layer.getFeatures().next()]
+        layerProvider = layer.dataProvider()
+        for feature in features:
+            layer.startEditing()
+            layerProvider.addFeatures([feature])
+            layer.commitChanges()
+        return True
+    except:
+        return False
 
 @timeit()
-def deleteFeatureAndSave(layer, fid):
-    # try:
-    #     layer.startEditing()
-    #     layer.deleteFeature(fid)
-    #     layer.commitChanges()
-    # except:
-    #     pass
-    pass
+def deleteFeatureAndSave(layer, feature_number=1):
+    try:
+        #features list to add with addFeatureLayerAndSave
+        features = []
+        layerCount = layer.featureCount()
+        for i in range(feature_number):
+            # layerCount = len([feat for feat in layer.getFeatures()])
+            pos = int(random.random()*layerCount)
+            for k, feat in enumerate(layer.getFeatures()):
+                if k + 1 <= pos:
+                    continue
+            feature = QgsFeature(layer.getFeatures().next())
+            fid = feature.id()
+            for field in feature.fields():
+                if field.name().lower() in ('id', 'pk', 'gid', 'pkuid', 'pk_uid', 'fid'):
+                    try:
+                        feature[field.name()] = None
+                    except:
+                        pass
+            layer.startEditing()
+            layer.deleteFeature(fid)
+            layer.commitChanges()
+            features.append(feature)
+        return features
+    except:
+        return False
+
+@timeit()
+def updateGeomAndSave(layer, feature_number=1):
+    try:
+        return True
+    except:
+        return False
+
+@timeit()
+def updateAtributeAndSave(layer, feature_number=1):
+    try:
+        return True
+    except:
+        return False
+
 
 def registerLayersSettings(printLayersParam=False):
     ''' Return vector layer settings and remove all layers from the incoming
@@ -150,6 +225,14 @@ def startTest(extraInformation=True):
         #run test
         layer = loadLayer(*layer_params)
         openAttributeTable(layer)
+        #tests with specific capabilites
+        provider = layer.dataProvider()
+        caps = provider.capabilities()
+        if caps & QgsVectorDataProvider.DeleteFeatures:
+            features = deleteFeatureAndSave(layer)
+        if caps & QgsVectorDataProvider.AddFeatures:
+            addFeatureAndSave(layer, features)
+
         #remove the layer
         registry.removeMapLayer(layer.id())
 
