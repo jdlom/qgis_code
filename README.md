@@ -1,10 +1,10 @@
-#qgis_code
+# qgis_code
 conveniance class to get pyqgis more pythonic
 
-##VectorLayer
+## VectorLayer
 A class to manipulate vector layer easier
 
-###Why to use
+###W hy to use
 With the VectorLayer class it's easier to :
 
 	* access name
@@ -12,7 +12,7 @@ With the VectorLayer class it's easier to :
 	* select entities
 
 
-###How to use
+## #How to use
 ```python
 from VectorLayer import VectorLayer
 
